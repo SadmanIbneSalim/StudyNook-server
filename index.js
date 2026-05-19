@@ -12,14 +12,6 @@ app.use(cors())
 
 
 
-app.get("/",(req,res)=>{
-res.send("the CRUD is here")
-});
-
-
-app.post("/",(req,res)=>{
-    res.send("the crud is posting")
-});
 
 
 
@@ -33,8 +25,34 @@ const client = new MongoClient(uri, {
 });
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+
+      await client.connect();
+    const db=client.db("StudyNook");
+    const roomCollection=db.collection("rooms");
+
+    app.get("/",(req,res)=>{
+res.send("the CRUD is here")
+});
+
+
+
+app.post('/rooms',async(req,res)=>{
+        const newRoom=req.body;
+	      console.log('user to be inserted',newRoom)
+        const result=await roomCollection.insertOne(newRoom);
+        res.send(result);
+    })
+
+app.get('/rooms',async(req,res)=>{
+    const result=await roomCollection.find().toArray();
+    res.json(result)
+})
+
+
+
+
+
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
@@ -46,8 +64,8 @@ async function run() {
 run().catch(console.dir);
 
 
-
-
 app.listen(port,()=>{
     console.log(`the port is serveing in the port ${port} `);
+
+
 })
