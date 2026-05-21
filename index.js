@@ -40,7 +40,16 @@ async function run() {
       res.json(result);
     });
 
-    app.get("/rooms/:roomId", async (req, res) => {
+    app.get("/rooms/:roomId", async (req, res,next) => {
+      const header=req.headers.authorization;
+      console.log(header);
+      // if(header==="logged in"){
+      //   next()
+      // }
+      // else{
+      //   res.status(401).json({message: "unauthorized"})
+      // }
+
       const { roomId } = req.params;
       const result = await roomCollection.findOne({
         _id: new ObjectId(roomId),
@@ -76,6 +85,13 @@ async function run() {
       const { userId } = req.params;
       const result = await bookingCollection.find({userId:userId}).toArray();
       res.json(result);
+    });
+
+     app.delete("/booking/:userId", async (req, res) => {
+        const { userId } = req.params;
+        const query = { _id: new ObjectId(userId) };
+        const result = await bookingCollection.deleteOne(query);
+        res.json(result);
     });
 
     // Send a ping to confirm a successful connection
