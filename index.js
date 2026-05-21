@@ -72,6 +72,11 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/booking/:userId", async (req, res) => {
+      const { userId } = req.params;
+      const result = await bookingCollection.find({userId:userId}).toArray();
+      res.json(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -86,5 +91,6 @@ async function run() {
 run().catch(console.dir);
 
 app.listen(port, () => {
-  console.log(`the port is serveing in the port ${port} `);
+  console.log(`the port is serving in the port ${port} `);
 });
+  
