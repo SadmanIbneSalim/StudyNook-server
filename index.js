@@ -22,6 +22,7 @@ async function run() {
     await client.connect();
     const db = client.db("StudyNook");
     const roomCollection = db.collection("rooms");
+    const bookingCollection=db.collection('Booking')
 
     app.get("/", (req, res) => {
       res.send("the CRUD is here");
@@ -62,6 +63,13 @@ async function run() {
         const query = { _id: new ObjectId(roomId) };
         const result = await roomCollection.deleteOne(query);
         res.json(result);
+    });
+
+    app.post("/rooms", async (req, res) => {
+      const bookingData = req.body;
+      console.log("user to be inserted", bookingData);
+      const result = await bookingCollection.insertOne(bookingData);
+      res.send(result);
     });
 
 
