@@ -65,7 +65,7 @@ async function run() {
         res.json(result);
     });
 
-    app.post("/rooms", async (req, res) => {
+    app.post("/booking", async (req, res) => {
       const bookingData = req.body;
       console.log("user to be inserted", bookingData);
       const result = await bookingCollection.insertOne(bookingData);
