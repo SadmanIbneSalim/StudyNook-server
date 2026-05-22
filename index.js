@@ -6,6 +6,7 @@ const port = process.env.PORT;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = process.env.MONGODB_URI;
 const cors = require("cors");
+const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 //middleware
 app.use(express.json());
 app.use(cors());
@@ -18,33 +19,35 @@ const client = new MongoClient(uri, {
   },
 });
 
-// const verifyToken=(req,res,next)=>{
-//   const authHeader=req?.header.authorization
-//   if(!authHeader){
-//     return res.status(401).json({ message: "Unauthorized"})
-//   }
+const jwks= createRemoteJWKSet(
+  new URL("http://localhost:3000/api/auth/jwks")
+)
 
-//   if(!token){
-//     return res.status(401).json({ message: "Unauthorized"})
-//   }
-//    console.log(authHeader);
-//    next();
-// }
-
-const verifyToken = (req, res, next) => {
-  const authHeader = req.headers.authorization; // headers, header না
-
+const verifyToken = async(req, res, next) => {
+  const authHeader = req.headers.authorization;
   if (!authHeader) {
     return res.status(401).json({ message: "Unauthorized" });
   }
-
-  const token = authHeader.split(" ")[1]; // "Bearer <token>" থেকে token নাও
-
+  const token = authHeader.split(" ")[1];
+  
   if (!token) {
     return res.status(401).json({ message: "Unauthorized" });
   }
+    
+   try{
+    const {payload}=await jwtVerify(token,jwks)
+    console.log(payload)
+      
+    next();
+    }
 
-  next();
+   catch(error){
+    return res.status(403).json({
+      message:"Forbidden"
+    });
+    
+  } 
+  
 };
 
 async function run() {
@@ -76,15 +79,9 @@ async function run() {
       res.json(result);
     });
 
-    app.get("/rooms/:roomId", async (req, res, next) => {
-      const header = req.headers.authorization;
-      console.log(header);
-      // if(header==="logged in"){
-      //   next()
-      // }
-      // else{
-      //   res.status(401).json({message: "unauthorized"})
-      // }
+    app.get("/rooms/:roomId",verifyToken, async (req, res ) => {
+      
+      
 
       const { roomId } = req.params;
       const result = await roomCollection.findOne({
@@ -110,30 +107,54 @@ async function run() {
       res.json(result);
     });
 
+    // app.post("/booking", async (req, res) => {
+
+    //   const bookingData = req.body;
+    //   const { roomId, bookingDate, startTime, endTime } = bookingData;
+
+    //   const existingBookings = await bookingCollection
+    //     .find({
+    //       roomId: roomId,
+    //       bookingDate: bookingDate,
+    //       status: { $ne: "cancelled" },
+    //     })
+    //     .toArray();
+
+    //   const conflictBooking = existingBookings.find((booking) => {
+    //     return startTime < booking.endTime && endTime > booking.startTime;
+    //   });
+
+    //   if (conflictBooking) {
+    //     return res.status(409).json({
+    //       message: `Already booked from ${conflictBooking.startTime} to ${conflictBooking.endTime} on this date.`,
+    //     });
+    //   }
+
+    //   const result = await bookingCollection.insertOne(bookingData);
+    //   res.send(result);
+    // });
     app.post("/booking", async (req, res) => {
       const bookingData = req.body;
       const { roomId, bookingDate, startTime, endTime } = bookingData;
 
-      const existingBookings = await bookingCollection
-        .find({
-          roomId: roomId,
-          bookingDate: bookingDate,
-          status: { $ne: "cancelled" },
-        })
-        .toArray();
-
-      const conflictBooking = existingBookings.find((booking) => {
-        return startTime < booking.endTime && endTime > booking.startTime;
+      const conflictBooking = await bookingCollection.findOne({
+        roomId: roomId,
+        bookingDate: bookingDate,
+        status: { $ne: "cancelled" },
+        startTime: { $lt: endTime },  
+        endTime: { $gt: startTime }   
       });
 
+      
       if (conflictBooking) {
         return res.status(409).json({
           message: `Already booked from ${conflictBooking.startTime} to ${conflictBooking.endTime} on this date.`,
         });
       }
 
+     
       const result = await bookingCollection.insertOne(bookingData);
-      res.send(result);
+      res.status(201).json(result);
     });
 
     app.get("/booking/:userId", async (req, res) => {
