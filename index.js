@@ -20,7 +20,7 @@ const client = new MongoClient(uri, {
 });
 
 const jwks= createRemoteJWKSet(
-  new URL("http://localhost:3000/api/auth/jwks")
+  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
 )
 
 const verifyToken = async(req, res, next) => {
@@ -52,7 +52,7 @@ const verifyToken = async(req, res, next) => {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
     const db = client.db("StudyNook");
     const roomCollection = db.collection("rooms");
     const bookingCollection = db.collection("Booking");
@@ -61,7 +61,7 @@ async function run() {
       res.send("the CRUD is here");
     });
 
-    app.post("/rooms", async (req, res) => {
+    app.post("/rooms",verifyToken, async (req, res) => {
       const newRoom = req.body;
       console.log("user to be inserted", newRoom);
       const result = await roomCollection.insertOne(newRoom);
@@ -73,7 +73,7 @@ async function run() {
       res.json(result);
     });
 
-    app.get("/rooms/owner/:ownerId", async (req, res) => {
+    app.get("/rooms/owner/:ownerId",verifyToken, async (req, res) => {
       const { ownerId } = req.params;
       const result = await roomCollection.find({ ownerId: ownerId }).toArray();
       res.json(result);
@@ -89,7 +89,7 @@ async function run() {
       });
       res.json(result);
     });
-    app.patch("/rooms/:roomId", async (req, res) => {
+    app.patch("/rooms/:roomId",verifyToken, async (req, res) => {
       const { roomId } = req.params;
       const updatedData = req.body;
       const result = await roomCollection.updateOne(
@@ -100,40 +100,15 @@ async function run() {
       res.json(result);
     });
 
-    app.delete("/rooms/:roomId", async (req, res) => {
+    app.delete("/rooms/:roomId",verifyToken, async (req, res) => {
       const { roomId } = req.params;
       const query = { _id: new ObjectId(roomId) };
       const result = await roomCollection.deleteOne(query);
       res.json(result);
     });
 
-    // app.post("/booking", async (req, res) => {
-
-    //   const bookingData = req.body;
-    //   const { roomId, bookingDate, startTime, endTime } = bookingData;
-
-    //   const existingBookings = await bookingCollection
-    //     .find({
-    //       roomId: roomId,
-    //       bookingDate: bookingDate,
-    //       status: { $ne: "cancelled" },
-    //     })
-    //     .toArray();
-
-    //   const conflictBooking = existingBookings.find((booking) => {
-    //     return startTime < booking.endTime && endTime > booking.startTime;
-    //   });
-
-    //   if (conflictBooking) {
-    //     return res.status(409).json({
-    //       message: `Already booked from ${conflictBooking.startTime} to ${conflictBooking.endTime} on this date.`,
-    //     });
-    //   }
-
-    //   const result = await bookingCollection.insertOne(bookingData);
-    //   res.send(result);
-    // });
-    app.post("/booking", async (req, res) => {
+    
+    app.post("/booking",verifyToken, async (req, res) => {
       const bookingData = req.body;
       const { roomId, bookingDate, startTime, endTime } = bookingData;
 
@@ -157,20 +132,20 @@ async function run() {
       res.status(201).json(result);
     });
 
-    app.get("/booking/:userId", async (req, res) => {
+    app.get("/booking/:userId",verifyToken, async (req, res) => {
       const { userId } = req.params;
       const result = await bookingCollection.find({ userId: userId }).toArray();
       res.json(result);
     });
 
-    app.delete("/booking/:userId", async (req, res) => {
+    app.delete("/booking/:userId",verifyToken, async (req, res) => {
       const { userId } = req.params;
       const query = { _id: new ObjectId(userId) };
       const result = await bookingCollection.deleteOne(query);
       res.json(result);
     });
 
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
