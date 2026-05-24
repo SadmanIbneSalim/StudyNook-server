@@ -19,35 +19,31 @@ const client = new MongoClient(uri, {
   },
 });
 
-const jwks= createRemoteJWKSet(
-  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
-)
+const jwks = createRemoteJWKSet(
+  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`),
+);
 
-const verifyToken = async(req, res, next) => {
+const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     return res.status(401).json({ message: "Unauthorized" });
   }
   const token = authHeader.split(" ")[1];
-  
+
   if (!token) {
     return res.status(401).json({ message: "Unauthorized" });
   }
-    
-   try{
-    const {payload}=await jwtVerify(token,jwks)
-    console.log(payload)
-      
-    next();
-    }
 
-   catch(error){
+  try {
+    const { payload } = await jwtVerify(token, jwks);
+    console.log(payload);
+
+    next();
+  } catch (error) {
     return res.status(403).json({
-      message:"Forbidden"
+      message: "Forbidden",
     });
-    
-  } 
-  
+  }
 };
 
 async function run() {
@@ -61,7 +57,7 @@ async function run() {
       res.send("the CRUD is here");
     });
 
-    app.post("/rooms",verifyToken, async (req, res) => {
+    app.post("/rooms", verifyToken, async (req, res) => {
       const newRoom = req.body;
       console.log("user to be inserted", newRoom);
       const result = await roomCollection.insertOne(newRoom);
@@ -73,23 +69,20 @@ async function run() {
       res.json(result);
     });
 
-    app.get("/rooms/owner/:ownerId",verifyToken, async (req, res) => {
+    app.get("/rooms/owner/:ownerId", verifyToken, async (req, res) => {
       const { ownerId } = req.params;
       const result = await roomCollection.find({ ownerId: ownerId }).toArray();
       res.json(result);
     });
 
-    app.get("/rooms/:roomId",verifyToken, async (req, res ) => {
-      
-      
-
+    app.get("/rooms/:roomId", verifyToken, async (req, res) => {
       const { roomId } = req.params;
       const result = await roomCollection.findOne({
         _id: new ObjectId(roomId),
       });
       res.json(result);
     });
-    app.patch("/rooms/:roomId",verifyToken, async (req, res) => {
+    app.patch("/rooms/:roomId", verifyToken, async (req, res) => {
       const { roomId } = req.params;
       const updatedData = req.body;
       const result = await roomCollection.updateOne(
@@ -100,15 +93,14 @@ async function run() {
       res.json(result);
     });
 
-    app.delete("/rooms/:roomId",verifyToken, async (req, res) => {
+    app.delete("/rooms/:roomId", verifyToken, async (req, res) => {
       const { roomId } = req.params;
       const query = { _id: new ObjectId(roomId) };
       const result = await roomCollection.deleteOne(query);
       res.json(result);
     });
 
-    
-    app.post("/booking",verifyToken, async (req, res) => {
+    app.post("/booking", verifyToken, async (req, res) => {
       const bookingData = req.body;
       const { roomId, bookingDate, startTime, endTime } = bookingData;
 
@@ -116,33 +108,58 @@ async function run() {
         roomId: roomId,
         bookingDate: bookingDate,
         status: { $ne: "cancelled" },
-        startTime: { $lt: endTime },  
-        endTime: { $gt: startTime }   
+        startTime: { $lt: endTime },
+        endTime: { $gt: startTime },
       });
 
-      
       if (conflictBooking) {
         return res.status(409).json({
           message: `Already booked from ${conflictBooking.startTime} to ${conflictBooking.endTime} on this date.`,
         });
       }
 
-     
       const result = await bookingCollection.insertOne(bookingData);
       res.status(201).json(result);
     });
 
-    app.get("/booking/:userId",verifyToken, async (req, res) => {
+    app.get("/booking/:userId", verifyToken, async (req, res) => {
       const { userId } = req.params;
       const result = await bookingCollection.find({ userId: userId }).toArray();
       res.json(result);
     });
 
-    app.delete("/booking/:userId",verifyToken, async (req, res) => {
-      const { userId } = req.params;
-      const query = { _id: new ObjectId(userId) };
-      const result = await bookingCollection.deleteOne(query);
-      res.json(result);
+   
+
+    app.patch("/booking/:bookingId/cancel", verifyToken, async (req, res) => {
+      const { bookingId } = req.params;
+
+      const booking = await bookingCollection.findOne({
+        _id: new ObjectId(bookingId),
+      });
+
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (booking.status === "cancelled") {
+        return res
+          .status(400)
+          .json({ message: "Booking is already cancelled" });
+      }
+
+      const result = await bookingCollection.updateOne(
+        { _id: new ObjectId(bookingId) },
+        { $set: { status: "cancelled" } },
+      );
+
+      if (booking.roomId) {
+        await roomCollection.updateOne(
+          { _id: new ObjectId(booking.roomId) },
+          { $inc: { bookingCount: -1 } },
+        );
+      }
+
+      res.json({ message: "Booking cancelled successfully", result });
     });
 
     // await client.db("admin").command({ ping: 1 });
