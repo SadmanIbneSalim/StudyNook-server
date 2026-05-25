@@ -64,10 +64,41 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/rooms", async (req, res) => {
-      const result = await roomCollection.find().toArray();
-      res.json(result);
-    });
+   app.get("/rooms", async (req, res) => {
+  const { search, amenities, minRate, maxRate, floor } = req.query;
+
+  const query = {};
+
+
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { floor: { $regex: search, $options: "i" } },
+      { description: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  
+  if (amenities) {
+    const amenityArray = amenities.split(",");
+    query.amenities = { $all: amenityArray }; 
+  }
+
+  // rate range filter
+  if (minRate || maxRate) {
+    query.rate = {};
+    if (minRate) query.rate.$gte = Number(minRate);
+    if (maxRate) query.rate.$lte = Number(maxRate);
+  }
+
+  // floor filter
+  if (floor) {
+    query.floor = { $regex: floor, $options: "i" };
+  }
+
+  const result = await roomCollection.find(query).toArray();
+  res.json(result);
+});
 
     app.get("/rooms/owner/:ownerId", verifyToken, async (req, res) => {
       const { ownerId } = req.params;
