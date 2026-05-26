@@ -64,41 +64,41 @@ async function run() {
       res.send(result);
     });
 
-   app.get("/rooms", async (req, res) => {
-  const { search, amenities, minRate, maxRate, floor } = req.query;
+    app.get("/rooms", async (req, res) => {
+      const { search, amenities, minRate, maxRate, floor, latest } = req.query;
 
-  const query = {};
+      const query = {};
 
+      if (search) {
+        query.$or = [
+          { name: { $regex: search, $options: "i" } },
+          { floor: { $regex: search, $options: "i" } },
+          { description: { $regex: search, $options: "i" } },
+        ];
+      }
 
-  if (search) {
-    query.$or = [
-      { name: { $regex: search, $options: "i" } },
-      { floor: { $regex: search, $options: "i" } },
-      { description: { $regex: search, $options: "i" } },
-    ];
-  }
+      if (amenities) {
+        query.amenities = { $all: amenities.split(",") };
+      }
 
-  
-  if (amenities) {
-    const amenityArray = amenities.split(",");
-    query.amenities = { $all: amenityArray }; 
-  }
+      if (minRate || maxRate) {
+        query.rate = {};
+        if (minRate) query.rate.$gte = Number(minRate);
+        if (maxRate) query.rate.$lte = Number(maxRate);
+      }
 
-  // rate range filter
-  if (minRate || maxRate) {
-    query.rate = {};
-    if (minRate) query.rate.$gte = Number(minRate);
-    if (maxRate) query.rate.$lte = Number(maxRate);
-  }
+      if (latest === "true") {
+        const result = await roomCollection
+          .find(query)
+          .sort({ _id: -1 })
+          .limit(6)
+          .toArray();
+        return res.json(result);
+      }
 
-  // floor filter
-  if (floor) {
-    query.floor = { $regex: floor, $options: "i" };
-  }
-
-  const result = await roomCollection.find(query).toArray();
-  res.json(result);
-});
+      const result = await roomCollection.find(query).toArray();
+      res.json(result);
+    });
 
     app.get("/rooms/owner/:ownerId", verifyToken, async (req, res) => {
       const { ownerId } = req.params;
@@ -158,8 +158,6 @@ async function run() {
       const result = await bookingCollection.find({ userId: userId }).toArray();
       res.json(result);
     });
-
-   
 
     app.patch("/booking/:bookingId/cancel", verifyToken, async (req, res) => {
       const { bookingId } = req.params;
