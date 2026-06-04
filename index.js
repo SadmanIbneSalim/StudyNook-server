@@ -36,6 +36,7 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const { payload } = await jwtVerify(token, jwks);
+    req.user = payload;
     console.log(payload);
 
     next();
@@ -106,13 +107,16 @@ async function run() {
       res.json(result);
     });
 
-    app.get("/rooms/:roomId", verifyToken, async (req, res) => {
+    app.get("/rooms/:roomId",  async (req, res) => {
       const { roomId } = req.params;
       const result = await roomCollection.findOne({
         _id: new ObjectId(roomId),
       });
-      res.json(result);
+      res.json({ ...result, bookingCount: result.bookingCount ?? 0 });
+      // res.json(result);
     });
+
+    
     app.patch("/rooms/:roomId", verifyToken, async (req, res) => {
       const { roomId } = req.params;
       const updatedData = req.body;
@@ -123,6 +127,7 @@ async function run() {
 
       res.json(result);
     });
+    
 
     app.delete("/rooms/:roomId", verifyToken, async (req, res) => {
       const { roomId } = req.params;
@@ -150,6 +155,10 @@ async function run() {
       }
 
       const result = await bookingCollection.insertOne(bookingData);
+        await roomCollection.updateOne(
+    { _id: new ObjectId(roomId) },
+    { $inc: { bookingCount: 1 } },
+  );
       res.status(201).json(result);
     });
 
@@ -183,7 +192,7 @@ async function run() {
 
       if (booking.roomId) {
         await roomCollection.updateOne(
-          { _id: new ObjectId(booking.roomId) },
+           { _id: new ObjectId(booking.roomId), bookingCount: { $gt: 0 } },
           { $inc: { bookingCount: -1 } },
         );
       }
